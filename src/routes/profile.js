@@ -53,7 +53,7 @@ profileRouter.patch("/profile/edit", userAuth, async (req, res) => {
 });
 
 // TODO: Add route for forgot password
-profileRouter.post("/profile/password", async (req, res) => {
+profileRouter.patch("/profile/password", async (req, res) => {
         try {
             const { email, newPassword } = req.body;
 
@@ -65,7 +65,7 @@ profileRouter.post("/profile/password", async (req, res) => {
             user.password = hashedPassword;
             await user.save();
             res.status(200).send({ message: "Password updated successfully" });
-            
+
             
         } catch (error) {
             res.status(500).send({message:"Internal Server Error"});

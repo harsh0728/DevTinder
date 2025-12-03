@@ -51,6 +51,9 @@ const userSchema=mongoose.Schema({
     timestamps:true,
 })
 
+// Compound Index
+userSchema.index({firstName:1,lastName:1});
+
 userSchema.methods.getJWT=async function(){
     const user=this;
     const token=jwt.sign(
