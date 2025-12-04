@@ -10,11 +10,13 @@ const authRouter=require("./routes/auth");
 const profileRouter=require("./routes/profile");
 const feedRouter=require("./routes/feed");
 const requestRouter=require("./routes/request");
+const userRouter=require("./routes/user");
 
 app.use("/",authRouter);
 app.use("/",profileRouter);
 app.use("/",feedRouter);
 app.use("/",requestRouter);
+app.use("/",userRouter);
 
 
 

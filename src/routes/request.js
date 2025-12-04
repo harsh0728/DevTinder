@@ -58,4 +58,37 @@ requestRouter.post("/request/send/:status/:toUserId",userAuth, async (req,res)=>
     }
 })
 
+requestRouter.post("/request/review/:status/:requestId",userAuth, async (req,res)=>{
+    try {
+        const {status,requestId}=req.params;
+        const loggedInUserId=req.user.userId;
+
+        // Status Validation
+        const allowedStatuses=["accepted","rejected"];
+        
+        if (!allowedStatuses.includes(status)){
+            return res.status(400).json({
+                message:"Invalid review status: "+status
+            })
+        }
+        
+        const connectionRequest=await ConnectionRequest.find({
+            _id:requestId,
+            toUserId:loggedInUserId,
+            status:"interested"
+        })
+
+        if (!connectionRequest){
+            return res.status(400).json({message:"Connection request not found"});
+        }
+        
+        connectionRequest.status=status;
+        const data=await connectionRequest.save();
+
+        res.status(200).json({message:"Connection request " + status+ " successfully",data:data});
+
+    } catch (error) {
+        res.status(400).send({message:error.message});
+    }
+});
 module.exports=requestRouter
