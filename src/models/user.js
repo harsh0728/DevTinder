@@ -1,78 +1,96 @@
-const mongoose=require('mongoose')
-const bcrypt=require('bcrypt');
-const jwt=require('jsonwebtoken');
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const validator = require("validator");
 
-const userSchema=mongoose.Schema({
-    firstName:{
-        type:String,
-        required:true,
+const userSchema = new mongoose.Schema(
+  {
+    firstName: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 50,
     },
-    lastName:{
-        type:String,
+    lastName: {
+      type: String,
+      trim: true,
+      maxlength: 50,
     },
-    email:{
-        type:String,
-        required:true,
-        unique:true,
-        trim:true,
-        lowercase:true,
-        
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      validate: {
+        validator: validator.isEmail,
+        message: "Invalid email address",
+      },
+      index: true,
     },
-    password:{
-        type:String,
-        required:true,
+    password: {
+      type: String,
+      required: true,
+      minlength: 8,
+      select: false, // 🔒 Hide password by default
     },
-    age:{
-        type:Number,
+    age: {
+      type: Number,
+      min: 10,
+      max: 100,
     },
-    gender:
-    {
-        type:String,
-        enum:["Male","Female","Other"],
-        validate: function (value)
-            {
-                if (!["male","female","other"].includes(value.toLowerCase()))
-                {
-                    throw new Error("Gender must be Male, Female or Other");
-                }
-                
-            }
-        
+    gender: {
+      type: String,
+      //enum: ["male", "female", "other"],
+      lowercase: true,
+      default:""
     },
-    skills:{
-        type:[String],
+    skills: {
+      type: [String],
+      set: skills =>
+        [...new Set(skills.map(s => s.trim().toLowerCase()))],
     },
-    about:{
-        type:String,
-    }
-    
-},
-{
-    timestamps:true,
-})
+    about: {
+      type: String,
+      maxlength: 500,
+    },
+    photoUrl: {
+      type: String,
+      default:"https://www.vecteezy.com/free-vector/default-profile-picture",
+      validate: {
+        validator: value =>
+          !value || validator.isURL(value),
+        message: "Invalid photo URL",
+      },
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
 
-// Compound Index
-userSchema.index({firstName:1,lastName:1});
+/* ================= Indexes ================= */
+userSchema.index({ firstName: 1, lastName: 1 });
 
-userSchema.methods.getJWT=async function(){
-    const user=this;
-    const token=jwt.sign(
-                    {
-                        userId:user._id,
-                    },
-                    "your_jwt_secret_key",
-                    {
-                        expiresIn:"1h",
-                    }
-                );
-    return token;
-}
+/* ================= Hooks ================= */
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+  this.password = await bcrypt.hash(this.password, 10);
+});
 
-userSchema.methods.validatePassword=async function(passwordInputByUser){
-    const user=this;
-    const hashedPassword=user.password;
-    const isValidPassword=await bcrypt.compare(passwordInputByUser,hashedPassword);
-    return isValidPassword;
-}
 
-module.exports=mongoose.model("User",userSchema);
+/* ================= Methods ================= */
+userSchema.methods.getJWT = function () {
+  return jwt.sign(
+    { userId: this._id },
+    process.env.JWT_SECRET,
+    { expiresIn: "1h" }
+  );
+};
+
+userSchema.methods.validatePassword = function (password) {
+  return bcrypt.compare(password, this.password);
+};
+
+module.exports = mongoose.model("User", userSchema);

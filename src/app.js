@@ -1,38 +1,57 @@
-const express=require('express');
-const connectDB=require("./config/database")
-const cookieParser=require("cookie-parser");
-const cors=require("cors");
+require("dotenv").config();
+const express = require("express");
+const connectDB = require("./config/database");
+const cookieParser = require("cookie-parser");
+const cors = require("cors");
 
-const app=express();
+const authRouter = require("./routes/auth");
+const profileRouter = require("./routes/profile");
+const feedRouter = require("./routes/feed");
+const requestRouter = require("./routes/request");
+const userRouter = require("./routes/user");
 
-app.use(cors({
-    origin:"http://localhost:5173",
-    credentials:true,
-}))
+const app = express();  
 
-app.use(express.json());
+/* ================= Middleware ================= */
+app.use(
+  cors({
+     origin: process.env.CLIENT_URL,
+    credentials: true,
+  })
+);
+
+app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 
-const authRouter=require("./routes/auth");
-const profileRouter=require("./routes/profile");
-const feedRouter=require("./routes/feed");
-const requestRouter=require("./routes/request");
-const userRouter=require("./routes/user");
+/* ================= Routes ================= */
+app.use("/api/auth", authRouter);
+app.use("/api/profile", profileRouter);
+app.use("/api/feed", feedRouter);
+app.use("/api/request", requestRouter);
+app.use("/api/user", userRouter);
 
-app.use("/",authRouter);
-app.use("/",profileRouter);
-app.use("/",feedRouter);
-app.use("/",requestRouter);
-app.use("/",userRouter);
+/* ================= 404 Handler ================= */
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "API route not found",
+  });
+});
 
+/* ================= Global Error Handler ================= */
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.statusCode || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error",
+  });
+});
 
+/* ================= Server ================= */
+const PORT = process.env.PORT || 3000;
 
-connectDB().then(()=>{
-    console.log("Database connected successfully");
-    app.listen(3000,()=>{
-        console.log('Server is running on port 3000');
-    });
-}).catch((error) => {
-      console.log("DB Connection Failed");
-      console.error(error);
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 });

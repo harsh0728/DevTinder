@@ -1,49 +1,46 @@
-const mongoose=require('mongoose');
+const mongoose = require("mongoose");
 
-const connectionRequestSchema=mongoose.Schema({
-    fromUserId:
-    {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true,
+const connectionRequestSchema = new mongoose.Schema(
+  {
+    fromUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
-    toUserId:
-    {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
+    toUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
-    status:
-    {
-        type: String,
-        required: true,
-        enum:
-        {
-            values: ["ignored","interested","accepted","rejected"],
-            message: `{VALUE} is not valid status`,
-        }
-    }
-},
-{
-    timestamps:true,
-})
+    status: {
+      type: String,
+      enum: ["ignored", "interested", "accepted", "rejected"],
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
 
-// To ensure that there is only one connection request between two users at any time
-//  Compound Unique Index => fromUserId + toUserId should be unique together
-// TODO: Learn more about Indexes in Mongoose
-connectionRequestSchema.index({fromUserId:1,toUserId:1},{unique:true});
+/* ================= Index ================= */
+// Prevent duplicate requests
+connectionRequestSchema.index(
+  { fromUserId: 1, toUserId: 1 },
+  { unique: true }
+);
 
+/* ================= Validation ================= */
+// connectionRequestSchema.pre("save", function (next) {
+//   if (this.fromUserId.equals(this.toUserId)) {
+//     return next(
+//       new Error("You cannot send a connection request to yourself")
+//     );
+//   }
+//   next();
+// });
 
-// Schema Level Validation
-connectionRequestSchema.pre('save', function(next)
-{
-    const connectionRequest=this;
-
-    if (connectionRequest.fromUserId.equals(connectionRequest.toUserId))
-    {
-        throw new Error("You cannot send request to yourself");
-    }
-    next();
-})
-
-module.exports=mongoose.model("ConnectionRequest",connectionRequestSchema);
+module.exports = mongoose.model(
+  "ConnectionRequest",
+  connectionRequestSchema
+);
