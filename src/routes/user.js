@@ -105,11 +105,7 @@ userRouter.get("/connections", userAuth, async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
 
-    /**
-     * Fetch accepted connections where the user is either:
-     * - sender OR
-     * - receiver
-     */
+    // 1. Fetch accepted connections
     const connections = await ConnectionRequest.find({
       status: "accepted",
       $or: [
@@ -121,23 +117,36 @@ userRouter.get("/connections", userAuth, async (req, res) => {
       "firstName lastName age gender about skills photoUrl"
     );
 
-    /**
-     * Normalize response:
-     * Return ONLY the "other user"
-     * (frontend should not care who sent/received)
-     */
-    const data = connections.map((connection) => {
-      return connection.fromUserId._id.toString() === loggedInUserId
+    // 2. Normalize and Deduplicate the response
+    const uniqueConnectedUserIds = new Set();
+    const uniqueConnections = [];
+
+    connections.forEach((connection) => {
+      // Determine the profile of the OTHER user
+      const otherUser = connection.fromUserId.equals(loggedInUserId)
         ? connection.toUserId
         : connection.fromUserId;
+
+      // Ensure the user object exists and has an ID
+      if (otherUser && otherUser._id) {
+          const otherUserIdString = otherUser._id.toString();
+          
+          // Check if we have already added this user
+          if (!uniqueConnectedUserIds.has(otherUserIdString)) {
+              // Add the user to the list and their ID to the Set
+              uniqueConnectedUserIds.add(otherUserIdString);
+              uniqueConnections.push(otherUser);
+          }
+      }
     });
 
     res.status(200).json({
       success: true,
       message: "Connections retrieved successfully",
-      data,
+      data: uniqueConnections, // Return the deduplicated array
     });
   } catch (error) {
+    console.error("Connections error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch connections",

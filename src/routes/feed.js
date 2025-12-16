@@ -69,31 +69,69 @@ feedRouter.get("/", userAuth, async (req, res) => {
     // 👤 Logged-in user ID (from auth middleware)
     const loggedInUserId = req.user._id;
 
-    /**
-     * 🔍 Fetch all relevant connection requests
-     * - Only interested & accepted users should be hidden
-     */
-    const connections = await ConnectionRequest.find({
-      $or: [
-        { fromUserId: loggedInUserId },
-        { toUserId: loggedInUserId },
-      ],
-      status: { $in: ["interested", "accepted"] },
-    }).select("fromUserId toUserId");
+    // /**
+    //  * 🔍 Fetch all relevant connection requests
+    //  * - Only interested & accepted users should be hidden
+    //  */
+    // const connections = await ConnectionRequest.find({
+    //   $or: [
+    //     { fromUserId: loggedInUserId },
+    //     { toUserId: loggedInUserId },
+    //   ],
+    //   status: { $in: ["interested", "accepted"] },
+    // }).select("fromUserId toUserId");
+
+    // /**
+    //  * 🚫 Build a set of users to exclude from feed
+    //  * - Set ensures uniqueness & faster lookup
+    //  */
+    // const hideUsersFromFeed = new Set();
+
+    // connections.forEach((connection) => {
+    //   hideUsersFromFeed.add(connection.fromUserId.toString());
+    //   hideUsersFromFeed.add(connection.toUserId.toString());
+    // });
+
+    // // 🚫 Also exclude self from feed
+    // hideUsersFromFeed.add(loggedInUserId.toString());
+
 
     /**
-     * 🚫 Build a set of users to exclude from feed
-     * - Set ensures uniqueness & faster lookup
-     */
-    const hideUsersFromFeed = new Set();
+ * 🔍 Fetch relevant connection requests
+ * - Only hide when request exists in EITHER direction
+ * - Hide both users only for "accepted" status
+ */
+const connections = await ConnectionRequest.find({
+  $or: [
+    { fromUserId: loggedInUserId },
+    { toUserId: loggedInUserId },
+  ],
+}).select("fromUserId toUserId status");
 
-    connections.forEach((connection) => {
-      hideUsersFromFeed.add(connection.fromUserId.toString());
+const hideUsersFromFeed = new Set();
+
+connections.forEach((connection) => {
+  // Always exclude matched connections
+  if (connection.status === "accepted") {
+    hideUsersFromFeed.add(connection.fromUserId.toString());
+    hideUsersFromFeed.add(connection.toUserId.toString());
+  }
+  
+  // Only exclude the OTHER person if "interested" 
+  // (so we don't show duplicate swipe cards)
+  if (connection.status === "interested") {
+    // If I sent the request, hide the other person
+    if (connection.fromUserId.toString() === loggedInUserId.toString()) {
       hideUsersFromFeed.add(connection.toUserId.toString());
-    });
+    }
+    // If they sent the request to me, hide them from my feed
+    else if (connection.toUserId.toString() === loggedInUserId.toString()) {
+      hideUsersFromFeed.add(connection.fromUserId.toString());
+    }
+  }
+});
 
-    // 🚫 Also exclude self from feed
-    hideUsersFromFeed.add(loggedInUserId.toString());
+  hideUsersFromFeed.add(loggedInUserId.toString());
 
     /**
      * 🧑 Fetch feed users

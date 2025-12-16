@@ -44,7 +44,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       //enum: ["male", "female", "other"],
       lowercase: true,
-      default:""
+      //default:""
     },
     skills: {
       type: [String],
@@ -57,7 +57,7 @@ const userSchema = new mongoose.Schema(
     },
     photoUrl: {
       type: String,
-      default:"https://www.vecteezy.com/free-vector/default-profile-picture",
+      default:"https://res.cloudinary.com/dd7rkwaua/image/upload/v1765744880/avatar_km3w7y.jpg",
       validate: {
         validator: value =>
           !value || validator.isURL(value),

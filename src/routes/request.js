@@ -146,19 +146,105 @@ requestRouter.post(
        * 🧠 Check if a request already exists in either direction
        * - Prevents duplicate & reverse duplicate requests
        */
-      const existingRequest = await ConnectionRequest.findOne({
-        $or: [
-          { fromUserId, toUserId },
-          { fromUserId: toUserId, toUserId: fromUserId },
-        ],
+      // const existingRequest = await ConnectionRequest.findOne({
+      //   $or: [
+      //     { fromUserId, toUserId },
+      //     { fromUserId: toUserId, toUserId: fromUserId },
+      //   ]
+      // });
+
+      // if (existingRequest) {
+      //   return res.status(409).json({
+      //     success: false,
+      //     message: "Connection request already exists",
+      //   });
+      // }
+
+      
+      /**
+       * 🔄 REVERSE DIRECTION CHECK: Look for a request they sent to me (toUserId → fromUserId)
+       */
+      const reverseRequest = await ConnectionRequest.findOne({
+        fromUserId: toUserId,
+        toUserId: fromUserId, // loggedInUserId
       });
 
-      if (existingRequest) {
+      if (reverseRequest) {
+        const theirStatus = reverseRequest.status;
+
+        // CASE 1: Already Connected
+        if (theirStatus === "accepted") {
+          return res.status(409).json({
+            success: false,
+            message: "You are already connected with this user.",
+          });
+        }
+
+        // CASE 2: INSTANT MATCH! (They are 'interested' AND I am swiping 'interested')
+        if (theirStatus === "interested" && status === "interested") {
+          // Update their existing request to 'accepted'
+          reverseRequest.status = "accepted";
+          await reverseRequest.save();
+
+          return res.status(200).json({
+            success: true,
+            message: "🎉 It's a match! Connection established.",
+            data: reverseRequest,
+          });
+        }
+        
+        
+        // CASE 3: BLOCK (All other cases where a reverse request exists)
+        // e.g., They 'ignored' me, or they are 'interested' but I'm not using the special 'ignored' match logic above.
+        // return res.status(409).json({
+        //   success: false,
+        //   message: "A request from this user is pending or was previously acted upon. Cannot initiate a new swipe action.",
+        // });
+      }
+      
+      // ... (If no reverse request, continue to the SAME DIRECTION CHECK and then CREATE NEW REQUEST)
+
+      /**
+       * 🔍 SAME DIRECTION CHECK
+       * Only allow: ignored → interested
+       */
+      const sameDirectionRequest = await ConnectionRequest.findOne({
+        fromUserId,
+        toUserId,
+      });
+
+      if (sameDirectionRequest) {
+        const currentStatus = sameDirectionRequest.status;
+
+        // Already connected - immutable
+        if (currentStatus === "accepted") {
+          return res.status(409).json({
+            success: false,
+            message: "Already connected",
+          });
+        }
+
+        // Allow ONLY: ignored → interested
+        if (currentStatus === "ignored" && status === "interested") {
+          sameDirectionRequest.status = status;
+          await sameDirectionRequest.save();
+          return res.status(200).json({
+            success: true,
+            message: "Connection request updated",
+            data: sameDirectionRequest,
+          });
+        }
+
+        // Block all other cases
         return res.status(409).json({
           success: false,
-          message: "Connection request already exists",
+          message:
+            currentStatus === "interested"
+              ? "Request already sent"
+              : "Request already exists",
         });
       }
+
 
       // 📌 Create new connection request
       const connectionRequest = new ConnectionRequest({

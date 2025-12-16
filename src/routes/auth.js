@@ -102,7 +102,7 @@ authRouter.post("/signup", async (req, res) => {
     // 🧪 Validate incoming request body
     validateSignUpData(req);
 
-    const { firstName, lastName, email, password } = req.body;
+    const { firstName, lastName, email, password, age, gender } = req.body;
 
     // 🔍 Check if user already exists (email must be unique)
     const userExists = await User.findOne({ email: email.toLowerCase() });
@@ -123,6 +123,8 @@ authRouter.post("/signup", async (req, res) => {
       lastName,
       email,
       password,
+      age, 
+      gender
     });
 
     await user.save();
