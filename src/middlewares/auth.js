@@ -62,7 +62,7 @@ const userAuth = async (req, res, next) => {
      * - Makes user data available in next controllers
      */
     req.user = user;
-    console.log(req.user);
+    //console.log(req.user);
     next();
   } catch (error) {
     console.error("Auth middleware error:", error.message);

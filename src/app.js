@@ -11,6 +11,7 @@ const requestRouter = require("./routes/request");
 const userRouter = require("./routes/user");
 
 const app = express();  
+require("./utils/cronjob");
 
 /* ================= Middleware ================= */
 app.use(
