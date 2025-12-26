@@ -48,10 +48,10 @@ paymentRouter.post("/create-order",userAuth,async(req,res)=>{
                 orderId:order.id,
                 amount:order.amount,
                 currency:order.currency,
-                keyId:process.env.YOUR_KEY_ID
+                keyId:process.env.RAZORPAY_KEY_ID
             }
         })
-
+ 
 
     } catch (error) {
         console.error("Error creating order:", error);
@@ -59,7 +59,7 @@ paymentRouter.post("/create-order",userAuth,async(req,res)=>{
     }
 })
 
-paymentRouter.post("/payment/webhook",async(req,res)=>{{
+paymentRouter.post("/payment/webhook",async(req,res)=>{
     try {
         const webhookSignature = req.headers('X-Razorpay-Signature');
 
@@ -71,16 +71,20 @@ paymentRouter.post("/payment/webhook",async(req,res)=>{{
             return res.status(400).json({success:false,message:"Invalid webhook signature"});
         }
 
-        if (req.body.event !== 'payment.captured') {
-            return res.status(400).json({ success: false, message: 'Unhandled event type' });
-        }
         if (req.body.event === 'payment.failed') {
-            return res.status(400).json({ success: false, message: 'Payment failed' });
+            return res.status(200).json({ success: false, message: 'Payment failed' });
         }
+        if (req.body.event !== 'payment.captured') {
+            return res.status(200).json({ success: false, message: 'Payment Captured' });
+        }
+
 
         // Update my payment status in DB
         const paymentDetails=req.body.payload.payment.entity;
         const payment=await Payment.findOne({orderId:paymentDetails.order_id});
+
+        if (!payment) return res.status(404).json({ success: false, message: "Payment not found" });
+
         payment.status=paymentDetails.status;
         await payment.save();
 
@@ -97,7 +101,7 @@ paymentRouter.post("/payment/webhook",async(req,res)=>{{
         console.error("Error verifying payment:", error);
         res.status(500).json({success:false,message:"Server Error"});
     }
-}})
+})
 
 
 paymentRouter.get("/premium/verify",userAuth,async(req,res)=>{
@@ -107,7 +111,7 @@ paymentRouter.get("/premium/verify",userAuth,async(req,res)=>{
             success:true,
             message:"User is a premium member",
             isPremium:true,
-            membershipType:user.membershipType
+            memberShipType:user.memberShipType
         });} 
     else{
         return res.status(200).json({
@@ -118,8 +122,5 @@ paymentRouter.get("/premium/verify",userAuth,async(req,res)=>{
     }
 
 });
-    
-
-
 
 module.exports=paymentRouter;

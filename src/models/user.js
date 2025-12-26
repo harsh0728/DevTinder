@@ -50,7 +50,7 @@ const userSchema = new mongoose.Schema(
       type:Boolean,
       default:false
     },
-    membershipType:{
+    memberShipType:{
       type:String,
     },
     skills: {

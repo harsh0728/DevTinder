@@ -10,8 +10,13 @@ const feedRouter = require("./routes/feed");
 const requestRouter = require("./routes/request");
 const userRouter = require("./routes/user");
 const paymentRouter=require("./routes/payment")
+const chatRouter=require("./routes/chat")
+const initializeSocket = require("./utils/socket");
+
 const app = express();  
+const http = require('http');
 require("./utils/cronjob");
+
 
 /* ================= Middleware ================= */
 app.use(
@@ -31,6 +36,10 @@ app.use("/api/feed", feedRouter);
 app.use("/api/request", requestRouter);
 app.use("/api/user", userRouter);
 app.use("/api/payment",paymentRouter);
+app.use("/api/chat",chatRouter);
+
+const server=http.createServer(app);
+initializeSocket(server); // Socket Initialization
 
 /* ================= 404 Handler ================= */
 app.use((req, res) => {
@@ -53,7 +62,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 
 connectDB().then(() => {
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
 });
