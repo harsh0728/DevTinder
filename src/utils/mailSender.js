@@ -21,7 +21,6 @@ const mailSender=async(email,title,body,text)=>{
             html: `${body}`, // HTML version of the message
         });
 
-        //console.log("Message sent:", info.messageId);
         return info;
        
     } catch (error) {

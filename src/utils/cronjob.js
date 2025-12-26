@@ -3,7 +3,7 @@ const {subDays,startOfDay,endOfDay}=require("date-fns");
 const connectionRequest = require('../models/connectionRequest');
 const mailSender=require("./mailSender")
 
-
+// Schedule a cron job to run every day at 8 AM
 cron.schedule('0 8 * * *', async() => {
   try {
 

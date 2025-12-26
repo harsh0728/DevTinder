@@ -9,7 +9,7 @@ const profileRouter = require("./routes/profile");
 const feedRouter = require("./routes/feed");
 const requestRouter = require("./routes/request");
 const userRouter = require("./routes/user");
-
+const paymentRouter=require("./routes/payment")
 const app = express();  
 require("./utils/cronjob");
 
@@ -30,6 +30,7 @@ app.use("/api/profile", profileRouter);
 app.use("/api/feed", feedRouter);
 app.use("/api/request", requestRouter);
 app.use("/api/user", userRouter);
+app.use("/api/payment",paymentRouter);
 
 /* ================= 404 Handler ================= */
 app.use((req, res) => {

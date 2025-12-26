@@ -46,6 +46,13 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       //default:""
     },
+    isPremium:{
+      type:Boolean,
+      default:false
+    },
+    membershipType:{
+      type:String,
+    },
     skills: {
       type: [String],
       set: skills =>
