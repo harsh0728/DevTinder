@@ -61,7 +61,7 @@ app.use((err, req, res, next) => {
 /* ================= Server ================= */
 const PORT = process.env.PORT || 3000;
 
-connectDB().then(() => {
+connectDB().then(() => {  
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
