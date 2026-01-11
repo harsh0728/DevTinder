@@ -96,7 +96,7 @@
 const express = require("express");
 const requestRouter = express.Router();
 const { userAuth } = require("../middlewares/auth");
-const User = require("../models/User");
+const User = require("../models/user");
 const ConnectionRequest = require("../models/connectionRequest");
 
 /**

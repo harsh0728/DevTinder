@@ -89,7 +89,7 @@
 const express = require("express");
 const authRouter = express.Router();
 
-const User = require("../models/User"); // Changed models/user.js to models/User.js
+const User = require("../models/user"); // Changed models/user.js to models/User.js
 const { validateSignUpData } = require("../utils/validation");
 
 /**

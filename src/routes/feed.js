@@ -47,7 +47,7 @@ const express = require("express");
 const { userAuth } = require("../middlewares/auth");
 const feedRouter = express.Router();
 const ConnectionRequest = require("../models/connectionRequest");
-const User = require("../models/User");
+const User = require("../models/user");
 
 /**
  * 📰 GET USER FEED

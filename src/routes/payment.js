@@ -5,7 +5,7 @@ const Payment=require("../models/payment");
 const {userAuth}=require("../middlewares/auth")
 const memberShipAmount=require("../utils/constants");
 const {validateWebhookSignature} = require('razorpay/dist/utils/razorpay-utils');
-const User = require('../models/User');
+const User = require('../models/user');
 
 // Route to create a new payment order
 paymentRouter.post("/create-order",userAuth,async(req,res)=>{
