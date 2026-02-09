@@ -247,7 +247,7 @@ authRouter.get(
 
 authRouter.get(
   "/google/callback",
-  passport.authenticate("google", { failureRedirect: "http://localhost:5173/login", session: false }),
+  passport.authenticate("google", { failureRedirect: process.env.NODE_ENV === "production"?"https://devtinder-web-kpdx.onrender.com/login":"http://localhost:5173/login", session: false }),
   async (req, res) => {
     const profile = req.user;
 
@@ -272,7 +272,12 @@ authRouter.get(
     const token = user.getJWT();
 
     // Redirect to frontend with token
-    res.redirect(`http://localhost:5173/oauth-success?token=${token}`);
+
+    // Dynamic redirect
+    const frontendURL =process.env.NODE_ENV === "production"?process.env.CLIENT_URL:"http://localhost:5173";
+
+    return res.redirect(`${frontendURL}/oauth-success?token=${token}`);
+
   }
 );
 
