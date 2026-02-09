@@ -21,8 +21,14 @@ require("./utils/cronjob");
 /* ================= Middleware ================= */
 app.use(
   cors({
-     origin: process.env.CLIENT_URL,
+     origin: process.env.NODE_ENV==="production"?process.env.CLIENT_URL:"http://localhost:5173",
     credentials: true,
+    // methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    // allowedHeaders: ['Content-Type', 'Authorization'],
+    // exposedHeaders: ['Set-Cookie'],
+    // preflightContinue: false,
+    // optionsSuccessStatus: 204
+
   })
 );
 

@@ -13,7 +13,7 @@ const getSecretRoomId=(userId,targetUserId)=>{
 const initializeSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:5173", // your frontend URL
+      origin: process.env.NODE_ENV === "production"?process.env.CLIENT_URL: "http://localhost:5173", // your frontend URL
       credentials: true,
       methods: ["GET", "POST"],
     },
