@@ -3,6 +3,9 @@ const express = require("express");
 const connectDB = require("./config/database");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+const passport = require("passport");
+require("./config/passport.js");
+
 
 const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
@@ -21,19 +24,17 @@ require("./utils/cronjob");
 /* ================= Middleware ================= */
 app.use(
   cors({
-     origin: process.env.NODE_ENV==="production"?process.env.CLIENT_URL:"http://localhost:5173",
+    origin:
+      process.env.NODE_ENV === "production"
+        ? process.env.CLIENT_URL
+        : "http://localhost:5173",
     credentials: true,
-    // methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    // allowedHeaders: ['Content-Type', 'Authorization'],
-    // exposedHeaders: ['Set-Cookie'],
-    // preflightContinue: false,
-    // optionsSuccessStatus: 204
-
   })
 );
 
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
+app.use(passport.initialize());
 
 /* ================= Routes ================= */
 app.use("/api/auth", authRouter);

@@ -88,7 +88,8 @@
 
 const express = require("express");
 const authRouter = express.Router();
-
+const passport =require("passport");
+const jwt=require("jsonwebtoken");
 const User = require("../models/user"); // Changed models/user.js to models/User.js
 const { validateSignUpData } = require("../utils/validation");
 
@@ -235,5 +236,46 @@ authRouter.post("/logout", async (req, res) => {
     });
   }
 });
+
+/* ===================== GOOGLE OAUTH ===================== */
+const crypto = require("crypto");
+
+authRouter.get(
+  "/google",
+  passport.authenticate("google", { scope: ["profile", "email"], session: false })
+);
+
+authRouter.get(
+  "/google/callback",
+  passport.authenticate("google", { failureRedirect: "http://localhost:5173/login", session: false }),
+  async (req, res) => {
+    const profile = req.user;
+
+    const email = profile.emails[0].value.toLowerCase();
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      const randomPassword = crypto.randomBytes(20).toString("hex");
+
+      user = await User.create({
+        firstName: profile.displayName.split(" ")[0] || "",
+        lastName: profile.displayName.split(" ")[1] || "",
+        email,
+        password: randomPassword,
+        age: 20,            // default age
+        gender: "other"     // default gender
+      });
+    }
+
+
+    const token = user.getJWT();
+
+    // Redirect to frontend with token
+    res.redirect(`http://localhost:5173/oauth-success?token=${token}`);
+  }
+);
+
+
 
 module.exports = authRouter;
