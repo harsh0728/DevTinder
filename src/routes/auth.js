@@ -271,13 +271,16 @@ authRouter.get(
 
     const token = user.getJWT();
 
-    // Redirect to frontend with token
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
-    // Dynamic redirect
-    const frontendURL =process.env.NODE_ENV === "production"?process.env.CLIENT_URL:"http://localhost:5173";
-
-    return res.redirect(`${frontendURL}/oauth-success?token=${token}`);
-
+    // Dynamic redirect 
+    const frontendURL= process.env.NODE_ENV === "production"?process.env.CLIENT_URL:"http://localhost:5173";
+    return res.redirect(`${frontendURL}/oauth-success`);
   }
 );
 
