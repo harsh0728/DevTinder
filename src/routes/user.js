@@ -59,6 +59,7 @@ const express = require("express");
 const { userAuth } = require("../middlewares/auth");
 const userRouter = express.Router();
 const ConnectionRequest = require("../models/connectionRequest");
+const User = require("../models/user");
 
 /**
  * @route   GET /user/request/received
@@ -153,5 +154,27 @@ userRouter.get("/connections", userAuth, async (req, res) => {
     });
   }
 });
+
+userRouter.get("/:id",userAuth,async(req,res)=>{
+  const userId=req.params.id;
+
+  try {
+    const user=await User.findById(userId).select("firstName lastName age skills about");
+
+    return res.status(200).json({
+      success: true,
+      message: "User fetched successfully",
+      data: user,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+})
+
+
 
 module.exports = userRouter;
