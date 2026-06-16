@@ -3,25 +3,29 @@ const paymentRouter=express.Router();
 const RazorpayInstance=require("../utils/razorpay");
 const Payment=require("../models/payment");
 const {userAuth}=require("../middlewares/auth")
-const memberShipAmount=require("../utils/constants");
+const {memberShipAmount}=require("../utils/constants");
 const {validateWebhookSignature} = require('razorpay/dist/utils/razorpay-utils');
 const User = require('../models/user');
 
 // Route to create a new payment order
 paymentRouter.post("/create-order",userAuth,async(req,res)=>{
     try {
-        const {memberShipType}=req.body;
+        const {membershipType}=req.body;
         const {firstName,lastName,email}=req.user;
 
+        console.log(req.body);
+        console.log(membershipType);
+        console.log(memberShipAmount[membershipType]);
+
         const order=await RazorpayInstance.orders.create({
-            amount: memberShipAmount[memberShipType],
+            amount: memberShipAmount[membershipType],
             currency: "INR",
             receipt: `receipt_${Date.now()}`,
             notes: {
                 firstName,
                 lastName,
                 email,
-                memberShipType
+                membershipType
             }
         })
 
@@ -91,7 +95,7 @@ paymentRouter.post("/payment/webhook",async(req,res)=>{
         // Update the user as premium member
         const user=await User.findOne({_id:payment.userId});
         user.isPremium=true;
-        user.memberShipType=payment.notes.memberShipType;
+        user.membershipType=payment.notes.membershipType;
         await user.save();
 
         // return success response to razorpay
@@ -111,7 +115,7 @@ paymentRouter.get("/premium/verify",userAuth,async(req,res)=>{
             success:true,
             message:"User is a premium member",
             isPremium:true,
-            memberShipType:user.memberShipType
+            membershipType:user.membershipType
         });} 
     else{
         return res.status(200).json({
