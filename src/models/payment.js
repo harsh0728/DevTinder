@@ -7,7 +7,7 @@ const paymentSchema=new mongoose.Schema({
     },
     paymentId:{
         type:String,
-        required:true,
+        default:null,
     },
     userId:{
         type:mongoose.Schema.Types.ObjectId,
