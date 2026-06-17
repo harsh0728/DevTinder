@@ -63,9 +63,11 @@ paymentRouter.post("/create-order",userAuth,async(req,res)=>{
     }
 })
 
-paymentRouter.post("/payment/webhook",async(req,res)=>{
+paymentRouter.post("/webhook",async(req,res)=>{
+    console.log("WEBHOOK HIT");
+    console.log(req.body.event);
     try {
-        const webhookSignature = req.headers('X-Razorpay-Signature');
+        const webhookSignature = req.get('X-Razorpay-Signature');
 
         const isWebHookValid=validateWebhookSignature(JSON.stringify(req.body),
         webhookSignature, 
@@ -89,7 +91,8 @@ paymentRouter.post("/payment/webhook",async(req,res)=>{
 
         if (!payment) return res.status(404).json({ success: false, message: "Payment not found" });
 
-        payment.status=paymentDetails.status;
+        payment.paymentId = paymentDetails.id;
+        payment.status = paymentDetails.status;
         await payment.save();
 
         // Update the user as premium member
