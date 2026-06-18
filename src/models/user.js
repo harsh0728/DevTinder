@@ -71,6 +71,12 @@ const userSchema = new mongoose.Schema(
         message: "Invalid photo URL",
       },
     },
+    resetPasswordToken:{
+      type:String
+    },
+    resetPasswordExpiry:{
+      type:Date
+    }
   },
   {
     timestamps: true,
