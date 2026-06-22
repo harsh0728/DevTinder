@@ -1,4 +1,4 @@
-name: CI - DevTinder Backend
+name: CI/CD - DevTinder Backend
 
 on:
   push:
@@ -24,3 +24,15 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  deploy:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Render deploy
+        run: |
+          curl "$RENDER_URL"
+        env:
+          RENDER_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
