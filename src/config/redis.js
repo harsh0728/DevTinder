@@ -2,8 +2,7 @@
 import {createClient} from "redis";
 
 export const redisClient=createClient({
-    url:"redis://localhost:6379",
-   // protocolVersion: 2 // Explicitly forces RESP2
+    url:process.env.REDIS_URL,
 });
 
 redisClient.on("error",(err)=>{
