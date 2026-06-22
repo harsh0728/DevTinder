@@ -21,13 +21,20 @@ const http = require('http');
 require("./utils/cronjob");
 
 
+//Redis
+const { connectRedis } = require("./config/redis.js");
+const startServer=async()=>{
+  await connectRedis();
+}
+startServer();
+
 /* ================= Middleware ================= */
 app.use(
   cors({
     origin:
       process.env.NODE_ENV === "production"
         ? process.env.CLIENT_URL
-        : "http://localhost:5173",
+        : "http://localhost:3000",
     credentials: true,
   })
 );
