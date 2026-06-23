@@ -1,7 +1,7 @@
 const { createClient } = require("redis"); // ✅ destructure
 
 const redisClient = createClient({
-  url: process.env.REDIS_URL_UPSTASH,
+  url: process.env.REDIS_URL,
 });
 
 redisClient.on("error", (err) => {
