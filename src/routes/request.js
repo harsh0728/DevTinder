@@ -98,7 +98,7 @@ const requestRouter = express.Router();
 const { userAuth } = require("../middlewares/auth");
 const User = require("../models/user");
 const ConnectionRequest = require("../models/connectionRequest");
-const { bustFeedCache, bustConnectionsCache, bustReceivedRequestsCache } = require("../utils/cacheBust");
+const { bustFeedCache, bustConnectionsCache, bustReceivedRequestsCache } = require("../utils/cachebust");
 const  {redisClient}  = require("../config/redis"); // ✅ import redis
 
 // // ✅ Helper: delete all cached feed pages for a user
