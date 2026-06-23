@@ -98,6 +98,31 @@ const requestRouter = express.Router();
 const { userAuth } = require("../middlewares/auth");
 const User = require("../models/user");
 const ConnectionRequest = require("../models/connectionRequest");
+const { bustFeedCache, bustConnectionsCache, bustReceivedRequestsCache } = require("../utils/cacheBust");
+const  {redisClient}  = require("../config/redis"); // ✅ import redis
+
+// // ✅ Helper: delete all cached feed pages for a user
+// // We cache keys like feed:{userId}:page:{n}:limit:{l}
+// // Since we can't do pattern delete on Upstash, we wipe pages 1–15 for common limits
+// const bustFeedCache = async (userId) => {
+//   try {
+//     const limits = [10, 20, 50];
+//     const pages = Array.from({ length: 15 }, (_, i) => i + 1);
+
+//     const keys = [];
+//     for (const limit of limits) {
+//       for (const page of pages) {
+//         keys.push(`feed:${userId}:page:${page}:limit:${limit}`);
+//       }
+//     }
+
+//     // redisClient.del() accepts multiple keys at once
+//     await redisClient.del(keys);
+//   } catch (err) {
+//     // Never crash the request over a cache bust failure
+//     console.error("Feed cache bust failed for user:", userId, err.message);
+//   }
+// };
 
 /**
  * ============================
@@ -228,6 +253,10 @@ requestRouter.post(
         if (currentStatus === "ignored" && status === "interested") {
           sameDirectionRequest.status = status;
           await sameDirectionRequest.save();
+
+        // ✅ Only fromUser's feed changes — they now have a pending request out
+        await bustFeedCache(fromUserId.toString());
+
           return res.status(200).json({
             success: true,
             message: "Connection request updated",
@@ -254,6 +283,12 @@ requestRouter.post(
       });
 
       const data = await connectionRequest.save();
+
+    // ✅ Bust feed for both users:
+    // - fromUser sent a request, so toUser should disappear from their feed
+    // - toUser received a request, so fromUser should disappear from their feed
+    await bustFeedCache(fromUserId.toString());
+    await bustFeedCache(toUserId.toString());
 
       return res.status(201).json({
         success: true,
@@ -316,6 +351,13 @@ requestRouter.post(
       // 🔁 Update request status
       connectionRequest.status = status;
       const data = await connectionRequest.save();
+
+    // ✅ Bust feed for both users on review:
+    // - accepted: both are now matched, neither should see each other in feed
+    // - rejected: fromUser can potentially reappear in toUser's feed
+    //             (depending on your feed logic for 'rejected' status)
+    await bustFeedCache(connectionRequest.fromUserId.toString());
+    await bustFeedCache(loggedInUserId.toString());
 
       return res.status(200).json({
         success: true,

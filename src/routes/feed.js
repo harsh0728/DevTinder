@@ -48,6 +48,7 @@ const { userAuth } = require("../middlewares/auth");
 const feedRouter = express.Router();
 const ConnectionRequest = require("../models/connectionRequest");
 const User = require("../models/user");
+const {redisClient}=require("../config/redis")
 
 /**
  * 📰 GET USER FEED
@@ -58,6 +59,7 @@ const User = require("../models/user");
  * - Supports pagination
  */
 feedRouter.get("/", userAuth, async (req, res) => {
+
   try {
     // 📄 Pagination handling
     const page = Math.max(parseInt(req.query.page) || 1, 1);
@@ -101,6 +103,23 @@ feedRouter.get("/", userAuth, async (req, res) => {
  * - Only hide when request exists in EITHER direction
  * - Hide both users only for "accepted" status
  */
+
+    // ✅ Cache key includes userId + page + limit so each page is cached separately
+    const cacheKey = `feed:${loggedInUserId}:page:${page}:limit:${limit}`;
+
+    // 1️⃣ Check Redis first
+    try {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        console.log("Feed served from Redis cache ✅");
+        return res.status(200).json(JSON.parse(cached));
+      }
+    } catch (redisErr) {
+      // Redis failure should NOT crash the request — fall through to MongoDB
+      console.error("Redis get failed, falling back to DB:", redisErr.message);
+    }
+
+    // 2️⃣ Cache miss — query MongoDB
 const connections = await ConnectionRequest.find({
   $or: [
     { fromUserId: loggedInUserId },
@@ -145,16 +164,31 @@ connections.forEach((connection) => {
       .skip(skip)
       .limit(limit);
 
-    return res.status(200).json({
+      const responsePayload = {
       success: true,
       message: "Users fetched successfully",
       data: usersInFeed,
-      pagination: {
-        page,
-        limit,
-        count: usersInFeed.length,
-      },
-    });
+      pagination: { page, limit, count: usersInFeed.length },};
+
+     // 3️⃣ Save to Redis — 10 minute TTL
+    try {
+      await redisClient.setEx(cacheKey, 600, JSON.stringify(responsePayload));
+    } catch (redisErr) {
+      console.error("Redis set failed:", redisErr.message);
+    }
+
+    return res.status(200).json(responsePayload);
+
+    // return res.status(200).json({
+    //   success: true,
+    //   message: "Users fetched successfully",
+    //   data: usersInFeed,
+    //   pagination: {
+    //     page,
+    //     limit,
+    //     count: usersInFeed.length,
+    //   },
+    // });
   } catch (error) {
     console.error("Feed error:", error.message);
     return res.status(400).json({

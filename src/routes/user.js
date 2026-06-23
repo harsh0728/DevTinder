@@ -60,6 +60,44 @@ const { userAuth } = require("../middlewares/auth");
 const userRouter = express.Router();
 const ConnectionRequest = require("../models/connectionRequest");
 const User = require("../models/user");
+const {redisClient}  = require("../config/redis"); // ✅
+
+// ─────────────────────────────────────────────
+// 🔧 Cache Helpers
+// ─────────────────────────────────────────────
+
+// Cache keys — centralised so they're consistent across files
+const CACHE_KEYS = {
+  receivedRequests: (userId) => `user:${userId}:requests:received`,
+  connections: (userId) => `user:${userId}:connections`,
+  profile: (userId) => `user:${userId}:profile`,
+};
+
+const CACHE_TTL = {
+  receivedRequests: 60,   // 1 minute — changes when someone sends/reviews a request
+  connections: 300,       // 5 minutes — changes only on accept/reject
+  profile: 600,           // 10 minutes — changes only on profile update
+};
+
+// Generic safe getter — returns null on Redis failure (falls back to DB)
+const cacheGet = async (key) => {
+  try {
+    const cached = await redisClient.get(key);
+    return cached ? JSON.parse(cached) : null;
+  } catch (err) {
+    console.error(`Redis GET failed [${key}]:`, err.message);
+    return null;
+  }
+};
+
+// Generic safe setter — never throws
+const cacheSet = async (key, data, ttl) => {
+  try {
+    await redisClient.setEx(key, ttl, JSON.stringify(data));
+  } catch (err) {
+    console.error(`Redis SET failed [${key}]:`, err.message);
+  }
+};
 
 /**
  * @route   GET /user/request/received
@@ -70,7 +108,16 @@ userRouter.get("/request/received", userAuth, async (req, res) => {
   try {
     // Extract logged-in user's ID from auth middleware
     const loggedInUserId = req.user._id;
+    const cacheKey = CACHE_KEYS.receivedRequests(loggedInUserId);
 
+    // 1️⃣ Check cache
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      console.log("Received requests served from cache ✅");
+      return res.status(200).json(cached);
+    }
+
+    // 2️⃣ Cache miss — hit DB
     /**
      * Fetch only "interested" requests sent TO the logged-in user
      * Populate sender details (fromUserId)
@@ -84,11 +131,16 @@ userRouter.get("/request/received", userAuth, async (req, res) => {
       "firstName lastName age gender about skills photoUrl"
     );
 
-    res.status(200).json({
+    const responsePayload = {
       success: true,
       message: "Connection requests retrieved successfully",
       data: connectionRequests,
-    });
+    };
+
+    // 3️⃣ Store in cache
+    await cacheSet(cacheKey, responsePayload, CACHE_TTL.receivedRequests);
+
+    return res.status(200).json(responsePayload);
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -105,6 +157,16 @@ userRouter.get("/request/received", userAuth, async (req, res) => {
 userRouter.get("/connections", userAuth, async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
+    const cacheKey = CACHE_KEYS.connections(loggedInUserId);
+
+    // 1️⃣ Check cache
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      console.log("Connections served from cache ✅");
+      return res.status(200).json(cached);
+    }
+
+    // 2️⃣ Cache miss — hit DB
 
     // 1. Fetch accepted connections
     const connections = await ConnectionRequest.find({
@@ -141,11 +203,16 @@ userRouter.get("/connections", userAuth, async (req, res) => {
       }
     });
 
-    res.status(200).json({
+    const responsePayload = {
       success: true,
       message: "Connections retrieved successfully",
       data: uniqueConnections, // Return the deduplicated array
-    });
+    };
+
+    // 3️⃣ Store in cache
+    await cacheSet(cacheKey, responsePayload, CACHE_TTL.connections);
+
+    return res.status(200).json(responsePayload);
   } catch (error) {
     console.error("Connections error:", error);
     res.status(500).json({
@@ -157,15 +224,36 @@ userRouter.get("/connections", userAuth, async (req, res) => {
 
 userRouter.get("/:id",userAuth,async(req,res)=>{
   const userId=req.params.id;
+  const cacheKey = CACHE_KEYS.profile(userId);
 
   try {
+    // 1️⃣ Check cache
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      console.log(`Profile [${userId}] served from cache ✅`);
+      return res.status(200).json(cached);
+    }
+  
+    // 2️⃣ Cache miss — hit DB
     const user=await User.findById(userId).select("firstName lastName age skills about");
 
-    return res.status(200).json({
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const responsePayload = {
       success: true,
       message: "User fetched successfully",
       data: user,
-    });
+    };
+
+    // 3️⃣ Store in cache
+    await cacheSet(cacheKey, responsePayload, CACHE_TTL.profile);
+
+    return res.status(200).json(responsePayload);
 
   } catch (error) {
     return res.status(500).json({
