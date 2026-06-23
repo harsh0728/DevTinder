@@ -49,6 +49,7 @@ const feedRouter = express.Router();
 const ConnectionRequest = require("../models/connectionRequest");
 const User = require("../models/user");
 const {redisClient}=require("../config/redis")
+const { readLimiter } = require("../middlewares/limiters");
 
 /**
  * 📰 GET USER FEED
@@ -58,7 +59,7 @@ const {redisClient}=require("../config/redis")
  *   - self user
  * - Supports pagination
  */
-feedRouter.get("/", userAuth, async (req, res) => {
+feedRouter.get("/",readLimiter, userAuth, async (req, res) => {
 
   try {
     // 📄 Pagination handling

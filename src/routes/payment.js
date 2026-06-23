@@ -6,9 +6,10 @@ const {userAuth}=require("../middlewares/auth")
 const {memberShipAmount}=require("../utils/constants");
 const {validateWebhookSignature} = require('razorpay/dist/utils/razorpay-utils');
 const User = require('../models/user');
+const { paymentLimiter } = require("../middlewares/limiters");
 
 // Route to create a new payment order
-paymentRouter.post("/create-order",userAuth,async(req,res)=>{
+paymentRouter.post("/create-order",paymentLimiter,userAuth,async(req,res)=>{
     try {
         const {membershipType}=req.body;
         const {firstName,lastName,email}=req.user;
@@ -111,7 +112,7 @@ paymentRouter.post("/webhook",async(req,res)=>{
 })
 
 
-paymentRouter.get("/premium/verify",userAuth,async(req,res)=>{
+paymentRouter.get("/premium/verify",paymentLimiter,userAuth,async(req,res)=>{
     const user=req.user.toJSON();
     if (user.isPremium){
         return res.status(200).json({

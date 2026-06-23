@@ -95,13 +95,14 @@ const { validateSignUpData } = require("../utils/validation");
 const { userAuth } = require("../middlewares/auth");
 const mailSender=require("../utils/mailSender")
 const crypto = require("crypto");
+const { authLimiter, passwordResetLimiter } = require("../middlewares/limiters");
 
 /**
  * ============================
  * 📝 SIGNUP ROUTE
  * ============================
  */
-authRouter.post("/signup", async (req, res) => {
+authRouter.post("/signup",authLimiter, async (req, res) => {
   try {
     // 🧪 Validate incoming request body
     validateSignUpData(req);
@@ -150,7 +151,7 @@ authRouter.post("/signup", async (req, res) => {
  * 🔐 LOGIN ROUTE
  * ============================
  */
-authRouter.post("/login", async (req, res) => {
+authRouter.post("/login",authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -301,7 +302,7 @@ authRouter.patch("/change-password", userAuth, async (req, res) => {
 });
 
 // forgot-password route
-authRouter.post("/forgot-password", async (req, res) => {
+authRouter.post("/forgot-password",passwordResetLimiter, async (req, res) => {
   // Always return the same generic response — never reveal if email exists
   const SAFE_RESPONSE={
     success:true,
@@ -356,7 +357,7 @@ authRouter.post("/forgot-password", async (req, res) => {
 
 
 // Change password route
-authRouter.patch("/reset-password/:token", async (req, res) => {
+authRouter.patch("/reset-password/:token",passwordResetLimiter, async (req, res) => {
   try {
     const {newPassword, confirmPassword } = req.body;
     const {token:rawToken}=req.params;
@@ -451,7 +452,7 @@ authRouter.get(
     });
 
     // Dynamic redirect 
-    const frontendURL= process.env.NODE_ENV === "production"?process.env.CLIENT_URL:"http://localhost:5173";
+    const frontendURL= process.env.NODE_ENV === "production"?process.env.CLIENT_URL:"http://localhost:3000";
     return res.redirect(`${frontendURL}/oauth-success`);
   }
 );
