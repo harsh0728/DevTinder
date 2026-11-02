@@ -12,9 +12,10 @@ const profileRouter = require("./routes/profile");
 const feedRouter = require("./routes/feed");
 const requestRouter = require("./routes/request");
 const userRouter = require("./routes/user");
-const paymentRouter=require("./routes/payment")
-const chatRouter=require("./routes/chat")
+const paymentRouter = require("./routes/payment");
+const chatRouter = require("./routes/chat");
 const initializeSocket = require("./utils/socket");
+const { apiRateLimiter } = require("./middlewares/validation");
 
 const app = express();  
 const http = require('http');
@@ -44,13 +45,14 @@ app.use(cookieParser());
 app.use(passport.initialize());
 
 /* ================= Routes ================= */
+// Apply rate limiting
 app.use("/api/auth", authRouter);
-app.use("/api/profile", profileRouter);
-app.use("/api/feed", feedRouter);
-app.use("/api/request", requestRouter);
-app.use("/api/user", userRouter);
-app.use("/api/payment",paymentRouter);
-app.use("/api/chat",chatRouter);
+app.use("/api/profile", apiRateLimiter, profileRouter);
+app.use("/api/feed", apiRateLimiter, feedRouter);
+app.use("/api/request", apiRateLimiter, requestRouter);
+app.use("/api/user", apiRateLimiter, userRouter);
+app.use("/api/payment", apiRateLimiter, paymentRouter);
+app.use("/api/chat", apiRateLimiter, chatRouter);
 
 const server=http.createServer(app);
 initializeSocket(server); // Socket Initialization

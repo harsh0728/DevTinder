@@ -1,66 +1,10 @@
-// const express = require('express');
-// const { userAuth } = require('../middlewares/auth');
-// const userRouter = express.Router();
-// const ConnectionRequest = require('../models/connectionRequest');
-// const User = require('../models/User');
-
-
-// userRouter.get("/user/request/received",userAuth, async (req, res) => {
-//     try {
-//         const loggedInUserId=req.user.userId;
-
-//         const connectionRequests=await ConnectionRequest.find({
-//             toUserId:loggedInUserId,
-//             status:"interested"
-//         }).populate(
-//             "fromUserId","firstName lastName age gender about skills photoUrl"
-//         )
-//         //.populate("fromUserId",["firstName","lastName","age","gender","photoUrl","about","skills"])
-
-//         res.status(200).send({ message: "Connection requests retrieved successfully", data: connectionRequests });
-        
-//     } catch (error) {
-//         res.status(400).send({ message: error.message });
-//     }
-// });
-
-
-// userRouter.get("/user/connections",userAuth, async (req, res) => {
-//     try {
-//         const loggedInUserId=req.user.userId;
-
-//         const connections=await ConnectionRequest.find({
-//             $or:[
-//                 {fromUserId:loggedInUserId,status:"accepted"},
-//                 {toUserId:loggedInUserId,status:"accepted"}
-//             ]
-//         }).populate(
-//             "fromUserId toUserId","firstName lastName age gender about skills photoUrl"
-//         )
-
-//         const data=connections.map((row)=> 
-//         {
-//             if (row.fromUserId._id.toString()===loggedInUserId.toString()){
-//                 return row.toUserId;
-//             }
-//             return row.fromUserId;
-//         })
-
-//         res.status(200).send({ message: "Connections retrieved successfully", data: data });
-//     } catch (error) {
-//         res.status(400).send({ message: error.message });
-//     }
-
-// });
-
-// module.exports=userRouter;
-
 const express = require("express");
 const { userAuth } = require("../middlewares/auth");
 const userRouter = express.Router();
 const ConnectionRequest = require("../models/connectionRequest");
 const User = require("../models/user");
-const {redisClient}  = require("../config/redis"); // ✅
+const { redisClient } = require("../config/redis");
+const { validatePagination } = require("../middlewares/validation");
 
 // ─────────────────────────────────────────────
 // 🔧 Cache Helpers
@@ -68,8 +12,8 @@ const {redisClient}  = require("../config/redis"); // ✅
 
 // Cache keys — centralised so they're consistent across files
 const CACHE_KEYS = {
-  receivedRequests: (userId) => `user:${userId}:requests:received`,
-  connections: (userId) => `user:${userId}:connections`,
+  receivedRequests: (userId, cursor, limit) => `user:${userId}:requests:received:cursor:${cursor || "start"}:limit:${limit}`,
+  connections: (userId, cursor, limit) => `user:${userId}:connections:cursor:${cursor || "start"}:limit:${limit}`,
   profile: (userId) => `user:${userId}:profile`,
 };
 
@@ -103,12 +47,14 @@ const cacheSet = async (key, data, ttl) => {
  * @route   GET /user/request/received
  * @desc    Get all pending connection requests received by logged-in user
  * @access  Private
+ * @query   cursor (ObjectId), limit (default 20, max 50)
  */
-userRouter.get("/request/received", userAuth, async (req, res) => {
+userRouter.get("/request/received", userAuth, validatePagination, async (req, res) => {
   try {
-    // Extract logged-in user's ID from auth middleware
     const loggedInUserId = req.user._id;
-    const cacheKey = CACHE_KEYS.receivedRequests(loggedInUserId);
+    const { cursor, limit = 20 } = req.query;
+    const parsedLimit = Math.min(parseInt(limit, 10), 50);
+    const cacheKey = CACHE_KEYS.receivedRequests(loggedInUserId, cursor, parsedLimit);
 
     // 1️⃣ Check cache
     const cached = await cacheGet(cacheKey);
@@ -118,23 +64,40 @@ userRouter.get("/request/received", userAuth, async (req, res) => {
     }
 
     // 2️⃣ Cache miss — hit DB
-    /**
-     * Fetch only "interested" requests sent TO the logged-in user
-     * Populate sender details (fromUserId)
-     * ⚠ Do NOT populate unnecessary fields (security + performance)
-     */
-    const connectionRequests = await ConnectionRequest.find({
+    const query = {
       toUserId: loggedInUserId,
       status: "interested",
-    }).populate(
-      "fromUserId",
-      "firstName lastName age gender about skills photoUrl"
-    );
+    };
+
+    // Apply cursor-based pagination
+    if (cursor) {
+      query._id = { ...query._id, $lt: cursor };
+    }
+
+    // Fetch one extra to determine if there's more
+    const connectionRequests = await ConnectionRequest.find(query)
+      .populate("fromUserId", "firstName lastName age gender about skills photoUrl")
+      .sort({ _id: -1 })
+      .limit(parsedLimit + 1);
+
+    const hasMore = connectionRequests.length > parsedLimit;
+    if (hasMore) {
+      connectionRequests.pop();
+    }
+
+    const nextCursor = hasMore && connectionRequests.length > 0
+      ? connectionRequests[connectionRequests.length - 1]._id.toString()
+      : null;
 
     const responsePayload = {
       success: true,
       message: "Connection requests retrieved successfully",
       data: connectionRequests,
+      pagination: {
+        nextCursor,
+        hasMore,
+        count: connectionRequests.length
+      },
     };
 
     // 3️⃣ Store in cache
@@ -142,6 +105,7 @@ userRouter.get("/request/received", userAuth, async (req, res) => {
 
     return res.status(200).json(responsePayload);
   } catch (error) {
+    console.error("Received requests error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch connection requests",
@@ -153,11 +117,14 @@ userRouter.get("/request/received", userAuth, async (req, res) => {
  * @route   GET /user/connections
  * @desc    Get all accepted connections of logged-in user
  * @access  Private
+ * @query   cursor (ObjectId), limit (default 20, max 50)
  */
-userRouter.get("/connections", userAuth, async (req, res) => {
+userRouter.get("/connections", userAuth, validatePagination, async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
-    const cacheKey = CACHE_KEYS.connections(loggedInUserId);
+    const { cursor, limit = 20 } = req.query;
+    const parsedLimit = Math.min(parseInt(limit, 10), 50);
+    const cacheKey = CACHE_KEYS.connections(loggedInUserId, cursor, parsedLimit);
 
     // 1️⃣ Check cache
     const cached = await cacheGet(cacheKey);
@@ -167,24 +134,29 @@ userRouter.get("/connections", userAuth, async (req, res) => {
     }
 
     // 2️⃣ Cache miss — hit DB
-
     // 1. Fetch accepted connections
-    const connections = await ConnectionRequest.find({
+    const baseQuery = {
       status: "accepted",
       $or: [
         { fromUserId: loggedInUserId },
         { toUserId: loggedInUserId },
       ],
-    }).populate(
-      "fromUserId toUserId",
-      "firstName lastName age gender about skills photoUrl"
-    );
+    };
+
+    if (cursor) {
+      baseQuery._id = { ...baseQuery._id, $lt: cursor };
+    }
+
+    const connections = await ConnectionRequest.find(baseQuery)
+      .populate("fromUserId toUserId", "firstName lastName age gender about skills photoUrl")
+      .sort({ _id: -1 })
+      .limit(parsedLimit + 1);
 
     // 2. Normalize and Deduplicate the response
     const uniqueConnectedUserIds = new Set();
     const uniqueConnections = [];
 
-    connections.forEach((connection) => {
+    for (const connection of connections) {
       // Determine the profile of the OTHER user
       const otherUser = connection.fromUserId.equals(loggedInUserId)
         ? connection.toUserId
@@ -192,21 +164,30 @@ userRouter.get("/connections", userAuth, async (req, res) => {
 
       // Ensure the user object exists and has an ID
       if (otherUser && otherUser._id) {
-          const otherUserIdString = otherUser._id.toString();
-          
-          // Check if we have already added this user
-          if (!uniqueConnectedUserIds.has(otherUserIdString)) {
-              // Add the user to the list and their ID to the Set
-              uniqueConnectedUserIds.add(otherUserIdString);
-              uniqueConnections.push(otherUser);
-          }
+        const otherUserIdString = otherUser._id.toString();
+
+        // Check if we have already added this user
+        if (!uniqueConnectedUserIds.has(otherUserIdString)) {
+          uniqueConnectedUserIds.add(otherUserIdString);
+          uniqueConnections.push(otherUser);
+        }
       }
-    });
+    }
+
+    const hasMore = connections.length > parsedLimit;
+    const nextCursor = hasMore && connections.length > 0
+      ? connections[connections.length - 1]._id.toString()
+      : null;
 
     const responsePayload = {
       success: true,
       message: "Connections retrieved successfully",
-      data: uniqueConnections, // Return the deduplicated array
+      data: uniqueConnections,
+      pagination: {
+        nextCursor,
+        hasMore,
+        count: uniqueConnections.length,
+      },
     };
 
     // 3️⃣ Store in cache
@@ -222,8 +203,8 @@ userRouter.get("/connections", userAuth, async (req, res) => {
   }
 });
 
-userRouter.get("/:id",userAuth,async(req,res)=>{
-  const userId=req.params.id;
+userRouter.get("/:id", userAuth, async (req, res) => {
+  const userId = req.params.id;
   const cacheKey = CACHE_KEYS.profile(userId);
 
   try {
@@ -233,9 +214,9 @@ userRouter.get("/:id",userAuth,async(req,res)=>{
       console.log(`Profile [${userId}] served from cache ✅`);
       return res.status(200).json(cached);
     }
-  
+
     // 2️⃣ Cache miss — hit DB
-    const user=await User.findById(userId).select("firstName lastName age skills about");
+    const user = await User.findById(userId).select("firstName lastName age skills about");
 
     if (!user) {
       return res.status(404).json({
@@ -261,8 +242,6 @@ userRouter.get("/:id",userAuth,async(req,res)=>{
       message: "Internal server error",
     });
   }
-})
-
-
+});
 
 module.exports = userRouter;

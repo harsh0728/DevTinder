@@ -95,13 +95,14 @@ const { validateSignUpData } = require("../utils/validation");
 const { userAuth } = require("../middlewares/auth");
 const mailSender=require("../utils/mailSender")
 const crypto = require("crypto");
+const { loginRateLimiter, logoutRateLimiter, authRateLimiter } = require("../middlewares/validation");
 
 /**
  * ============================
  * 📝 SIGNUP ROUTE
  * ============================
  */
-authRouter.post("/signup", async (req, res) => {
+authRouter.post("/signup", authRateLimiter, async (req, res) => {
   try {
     // 🧪 Validate incoming request body
     validateSignUpData(req);
@@ -150,7 +151,7 @@ authRouter.post("/signup", async (req, res) => {
  * 🔐 LOGIN ROUTE
  * ============================
  */
-authRouter.post("/login", async (req, res) => {
+authRouter.post("/login", loginRateLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -223,7 +224,7 @@ authRouter.post("/login", async (req, res) => {
  * 🚪 LOGOUT ROUTE
  * ============================
  */
-authRouter.post("/logout", async (req, res) => {
+authRouter.post("/logout", logoutRateLimiter, async (req, res) => {
   try {
     // 🍪 Clear authentication cookie
     res.clearCookie("token");
@@ -450,8 +451,8 @@ authRouter.get(
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // Dynamic redirect 
-    const frontendURL= process.env.NODE_ENV === "production"?process.env.CLIENT_URL:"http://localhost:5173";
+    // Dynamic redirect
+    const frontendURL= process.env.NODE_ENV === "production"?process.env.CLIENT_URL:"http://localhost:3000";
     return res.redirect(`${frontendURL}/oauth-success`);
   }
 );
