@@ -5,6 +5,7 @@ const ConnectionRequest = require("../models/connectionRequest");
 const User = require("../models/user");
 const { redisClient } = require("../config/redis");
 const { validatePagination } = require("../middlewares/validation");
+const { readLimiter } = require("../middlewares/limiters");
 
 /**
  * 📰 GET USER FEED
@@ -14,7 +15,7 @@ const { validatePagination } = require("../middlewares/validation");
  *   - self user
  * - Supports cursor-based pagination
  */
-feedRouter.get("/", userAuth, validatePagination, async (req, res) => {
+feedRouter.get("/", readLimiter, userAuth, validatePagination, async (req, res) => {
   try {
     const { cursor, limit = 10 } = req.query;
     const parsedLimit = Math.min(parseInt(limit, 10), 50);

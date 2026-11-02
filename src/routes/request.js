@@ -100,6 +100,7 @@ const User = require("../models/user");
 const ConnectionRequest = require("../models/connectionRequest");
 const { bustFeedCache, bustConnectionsCache, bustReceivedRequestsCache } = require("../utils/cachebust");
 const  {redisClient}  = require("../config/redis"); // ✅ import redis
+const { swipeLimiter } = require("../middlewares/limiters");
 
 // // ✅ Helper: delete all cached feed pages for a user
 // // We cache keys like feed:{userId}:page:{n}:limit:{l}
@@ -132,6 +133,7 @@ const  {redisClient}  = require("../config/redis"); // ✅ import redis
  */
 requestRouter.post(
   "/send/:toUserId",
+  swipeLimiter,
   userAuth,
   async (req, res) => {
     try {
@@ -312,6 +314,7 @@ requestRouter.post(
  */
 requestRouter.post(
   "/review/:requestId",
+  swipeLimiter,
   userAuth,
   async (req, res) => {
     try {
